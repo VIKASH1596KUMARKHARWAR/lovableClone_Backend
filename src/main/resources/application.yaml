@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: lovable-clone
+
+  datasource:
+    url: jdbc:postgresql://localhost:9010/pgvector-test
+    username: user
+    password: password
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  ai:
+    openai:
+      api-key: ${OPENROUTER_API_KEY:}
+      base-url: https://openrouter.ai/api
+      chat:
+        options:
+          model: google/gemini-3-flash-preview
+          temperature: 0.0
+
+jwt:
+  secret-key: ${JWT_SECRET:}
+
+stripe:
+  api:
+    secret: ${STRIPE_API_SECRET:}
+  webhook:
+    secret: ${STRIPE_WEBHOOK_SECRET:}
+
+client:
+  url: http://localhost:5173
+
+minio:
+  url: http://localhost:9000
+  access-key: ${MINIO_ACCESS_KEY:}
+  secret-key: ${MINIO_SECRET_KEY:}
+  project-bucket: projects
