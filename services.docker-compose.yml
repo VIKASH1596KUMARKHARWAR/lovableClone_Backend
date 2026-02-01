@@ -2,7 +2,8 @@ version: '3.9'
 
 services:
   pgvector:
-    image: pgvector/pgvector:0.8.1-pg18-trixie
+    image: pgvector/pgvector:pg15
+    platform: linux/amd64
     container_name: pgvector-db-lovable
     environment:
       POSTGRES_DB: pgvector-test
@@ -11,7 +12,7 @@ services:
     ports:
       - "9010:5432"
     volumes:
-      - pgvector-data:/var/lib/postgresql
+      - pgvector-data:/var/lib/postgresql/data
     restart: unless-stopped
 
   minio:
