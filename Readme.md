@@ -37,21 +37,21 @@ streaming, persistence, and file creation are handled in the backend.*
 
 ## High-Level System Overview
 
+## High-Level System Overview
 
-
+```text
 User
 └── Project
-├── Project Members (OWNER / EDITOR / VIEWER)
-├── Chat Session (AI context)
-│ ├── Chat Messages
-│ └── Chat Events (streamed output)
-└── Project Files (AI-generated / user-managed)
+    ├── Project Members (OWNER / EDITOR / VIEWER)
+    ├── Chat Session (AI context)
+    │   ├── Chat Messages
+    │   └── Chat Events (streamed output)
+    └── Project Files (AI-generated / user-managed)
 
 
 
-
-This backend treats **AI as infrastructure**, not a stateless chat endpoint.
-
+This backend treats AI as infrastructure, not a stateless chat endpoint.
+```
 ---
 
 ## Core Principles (Read This First)
