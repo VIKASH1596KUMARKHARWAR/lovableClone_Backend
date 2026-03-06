@@ -67,6 +67,8 @@ This backend includes a production-ready AI orchestration layer responsible for:
 - MinIO-backed file persistence
 - Circuit breaker protection
 
+![AI_CODE_GENERATION_Architecture](docs/ai_design_architecture.png)
+
 Full Detailed Documentation:
 
       AI Code Generation Engine → docs/AI_CODE_GENERATION_ENGINE.md
