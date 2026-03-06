@@ -1,399 +1,337 @@
-# Lovable Clone – Backend (Spring Boot)
+# Lovable Clone – AI App Builder Backend (Spring Boot)
 
-A **production-grade backend** inspired by **AI-assisted collaborative development platforms** (Lovable / Cursor-style systems).
+A production-grade backend powering an **AI-driven full-stack application builder**, inspired by platforms like Lovable.
 
-Built using **Spring Boot**, **JPA/Hibernate**, **PostgreSQL**, and **Spring AI**, this backend focuses on:
+This system enables users to generate and manage complete web applications through AI-assisted workflows — supporting project isolation, role-based collaboration, and subscription-based feature access.
 
-- clean domain modeling
-- explicit ownership & authorization
-- transactional correctness
-- project-scoped AI code generation
-- long-lived, auditable AI interactions
+While Lovable focuses on rapid no-code generation, this project concentrates on building the **robust backend architecture required to support AI-generated applications in a production environment**.
 
-All design decisions are intentionally documented to reflect **real-world backend engineering trade-offs** and to give reviewers full clarity on system intent, scope, and architecture.
+The backend is designed to support:
 
----
-## Design Documentation
+* AI-assisted project scaffolding workflows
+* Multi-tenant project isolation
+* Strict role-based access control (OWNER / EDITOR / VIEWER)
+* Stripe-powered subscription and feature gating
+* Secure lifecycle and billing synchronization
 
-Detailed design decisions and architecture notes are available in the `docs/` directory:
+Designed with strong emphasis on:
 
-- Architecture & service boundaries
-- AI generation pipeline
-- Domain modeling decisions
-- Planned system evolution
-- 
-
-## AI Architecture Overview
-
-<p align="center">
-  <img src="doc/code_execution_system_architecture.png"
-       alt="AI Code Execution System Architecture"
-       width="800">
-</p>
-
-*High-level execution flow showing how project-scoped AI generation,
-streaming, persistence, and file creation are handled in the backend.*
---- 
-
-## High-Level System Overview
-
-## High-Level System Overview
-
-```text
-User
-└── Project
-    ├── Project Members (OWNER / EDITOR / VIEWER)
-    ├── Chat Session (AI context)
-    │   ├── Chat Messages
-    │   └── Chat Events (streamed output)
-    └── Project Files (AI-generated / user-managed)
-
-
-
-This backend treats AI as infrastructure, not a stateless chat endpoint.
-```
----
-
-## Core Principles (Read This First)
-
-### Single Source of Truth
-- Project ownership and membership exist **only** in `project_members`
-- No duplicated ownership column on `projects`
-- All permissions are derived, never inferred
-
-### Explicitness Over Magic
-- JPA does **not** infer ownership
-- Spring Security does **not** inject business rules
-- Ownership, access, and AI scope are **explicitly resolved in the service layer**
-
-### Separation of Concerns
-- Controllers → request / response only
-- Services → business logic + authorization
-- Persistence → correctness & constraints
-- AI → isolated generation pipeline
-
-### Database-Driven Correctness
-- Composite keys encode real-world constraints
-- Soft deletes preserve auditability
-- Invalid state transitions are blocked at the service layer
+* Explicit ownership & authorization semantics
+* Transactional correctness
+* Idempotent webhook/event processing
+* Security-first API design
+* Stripe-driven subscription lifecycle management
 
 ---
 
-## Features Implemented
+#  Executive Summary (Recruiter Quick Scan)
 
-### Project Management
-- Create projects
-- Update project metadata
-- Fetch user-accessible projects
-- Soft delete projects (non-destructive)
+* Engineered a production‑ready multi‑tenant backend with strict role‑based access control and ownership guarantees
+* Designed a composite‑key membership model preventing duplicate memberships and privilege escalation
+* Built a Stripe subscription engine with webhook‑driven lifecycle synchronization
+* Implemented idempotent webhook handling to ensure concurrency‑safe state transitions
+* Enforced Stripe as the single source of truth for billing state
+* Implemented early trial termination with immediate billing conversion
+* Ensured transactional integrity across all write operations
 
-### Ownership & Authorization
-- Each project has **exactly one OWNER**
-- Ownership is defined by:
-
-
-
-project_members.project_role = OWNER
-
-
-Only the OWNER can:
-- Update project details
-- Invite / remove members
-- Change member roles
-
-Authorization is enforced **inside the service layer**, not controllers.
+**Tech Stack:** Java 21, Spring Boot, Spring Data JPA, PostgreSQL (Neon), Stripe API (v31), JWT, MapStruct, Lombok
 
 ---
+## System Architecture
+
+### High-Level Architecture
+
+![System Architecture](docs/system-architecture.png)
+
+Key components:
+
+- AI Intelligence Service
+- Chat Streaming (SSE)
+- Workspace Service
+- MinIO Object Storage
+- Execution Service
+- Kubernetes-based Preview Pods
+- Stripe Billing Integration
+- Usage & Quota Management
+
+---
+
+## AI Code Generation Engine
+
+This backend includes a production-ready AI orchestration layer responsible for:
+
+- Structured LLM prompt construction
+- Streaming responses via SSE
+- Tool-calling (file retrieval)
+- Guardrail-enforced deterministic XML output
+- MinIO-backed file persistence
+- Circuit breaker protection
+
+Full Detailed Documentation:
+
+      AI Code Generation Engine → docs/AI_CODE_GENERATION_ENGINE.md
+
+
+
+---
+
+## 🗄️ Database Design
+
+### ER Diagram
+
+![ER Diagram](docs/ER_Diagram.png)
+
+Highlights:
+
+- Composite PK for project membership
+- Strict ownership modeling
+- Subscription lifecycle tracking
+- Usage log auditing
+- Preview isolation model
+- Chat session & message tracking
+---
+
+#  Core Architecture Principles
+
+## 1. Single Source of Truth
+
+* Project ownership and membership exist exclusively in `project_members`
+* No duplicated ownership columns on `projects`
+* Subscription lifecycle is driven entirely by Stripe webhooks
+
+All authorization and billing decisions are derived, never inferred.
+
+---
+
+## 2. Explicit Authorization Model
+
+* Ownership modeled as a role (OWNER / EDITOR / VIEWER)
+* Permissions decoupled from roles for extensibility
+* Authorization enforced at the service layer
+* Data access validated before exposure
+
+The system intentionally differentiates **403 vs 404 semantics** to prevent resource enumeration attacks.
+
+---
+
+## 3. Separation of Concerns
+
+Controller → Request mapping only
+Service → Business logic + authorization
+Repository → Data integrity + constraints
+
+Stripe SDK is fully isolated inside `StripePaymentProcessor`, preserving clean domain boundaries.
+
+---
+
+#  Project & Collaboration System
 
 ## Ownership Model
 
-Ownership is modeled as a **role**, not a column.
+```
+ProjectRole = OWNER | EDITOR | VIEWER
+```
 
-Why:
-- Prevents ownership duplication
-- Enables future multi-owner or org-level models
-- Keeps collaboration logic centralized
-- Avoids inconsistent state
+* Exactly one OWNER per project
+* OWNER exclusively manages lifecycle & membership
+* Editors and viewers cannot escalate privileges
 
----
-
-## Domain Model
-
-### Project
-Represents a collaborative workspace.
-
-- `createdAt` – creation timestamp
-- `updatedAt` – last modification timestamp
-- `deletedAt` – soft delete marker
-
-Projects **do not store ownership directly**.  
-Ownership is derived via `project_members`.
+Composite primary key (`projectId`, `userId`) enforces one membership per user‑project pair at the database level.
 
 ---
 
-## Project Member Service (Collaboration Core)
+## Permission Design
 
-Collaboration follows an **invitation-based membership model**.
+Permissions are capability‑based and decoupled from roles:
 
-A user becomes a project member only after:
-1. Being invited by the OWNER
-2. Explicitly accepting the invitation
+```
+VIEW
+EDIT
+DELETE
+MANAGE_MEMBERS
+```
 
-### ProjectMember
-The `project_members` table is the **single source of truth** for:
-- membership
-- ownership
-- roles
-- invitation lifecycle
-
-Each record contains:
-- composite key `(projectId, userId)`
-- role (OWNER / EDITOR / VIEWER)
-- invitation timestamps
-
-### Composite Key (ProjectMemberId)
-
-Why composite keys:
-- Prevent duplicate memberships
-- Enforce one user–project relationship
-- Model real-world constraints at DB level
-- Avoid meaningless surrogate IDs
-
----
-
-## Invitation Lifecycle
-
-Invitation state is derived purely from timestamps:
-
-| invitedAt | acceptedAt | State   |
-|---------|-----------|--------|
-| NOT NULL | NULL      | Pending |
-| NOT NULL | NOT NULL  | Active  |
-
-No additional status column is required.
-
----
-
-## Project Member Operations
-
-- Invite member (OWNER only)
-- Accept invitation (invitee)
-- Reject invitation (invitee)
-- Update member role (OWNER only)
-- Remove member (OWNER only)
-
-All invalid transitions (double accept, reject after accept, owner reassignment, etc.) are blocked at the service layer.
-
----
-
-## Project Roles
-
-- **OWNER** – full control
-- **EDITOR** – content modification (feature-dependent)
-- **VIEWER** – read-only access
-
----
-
-## AI-Driven Code Generation (Core Feature)
-
-This backend supports **AI-assisted software creation inside projects**.
-
-AI is:
-- project-scoped
-- stateful
-- auditable
-
-AI is treated as a **first-class backend capability**, not a utility chat endpoint.
-
----
-
-## AI Architecture Overview
-
-
-User Prompt
-→ Chat Session
-→ AI Generation Service
-→ Streamed Events (SSE)
-→ Chat Messages + Events
-→ Project Files
-
-
-
-
-Key characteristics:
-- AI context is tied to a project
-- Every interaction is persisted
-- Output is structured, not plain text
-
----
-
-## Chat & AI Domain Model
-
-### ChatSession
-- One session per `(projectId, userId)`
-- Persistent AI context
-- Enables replayable conversations
-- Supports long-lived collaboration state
-
-### ChatMessage
-Stores each interaction with the AI.
-
-Used for:
-- auditing AI behavior
-- token usage tracking
-- billing readiness
-- debugging and replay
-
-### ChatEvent
-AI output is decomposed into fine-grained events:
-- THOUGHT
-- MESSAGE
-- FILE_EDIT
-- TOOL_LOG
-
-Why events:
-- Enables streaming
-- Supports file diffs
-- Separates reasoning from output
-- Allows deterministic UI rendering
-
----
-
-## AI Generation Service
-
-AI generation is isolated in a **dedicated service layer**.
-
-Responsibilities:
-- Build prompts using project context, file tree, and chat history
-- Stream responses token-by-token
-- Parse structured output
-- Persist messages and events
-- Emit file creation / modification instructions
-
-Configured via **Spring AI** with a pluggable provider (OpenRouter / OpenAI / Gemini).
-
----
-
-## Streaming AI Responses (SSE)
-
-AI output is delivered using **Server-Sent Events (SSE)**.
-
-Why SSE:
-- Native browser support
-- Low latency
-- Ideal for incremental AI output
-
-The backend streams:
-- incremental text
-- structured JSON events
-- file modification instructions
-
----
-
-## File Generation & Persistence
-
-AI-generated files are **first-class project artifacts**.
-
-Design choices:
-- File content stored in **MinIO (S3-compatible storage)**
-- Database stores metadata only
-- Enables versioning, diffs, rollbacks, and previews
-
----
-
-## Transaction Management
-
-- All write operations are transactional
-- JPA dirty checking is relied upon
-- Explicit `save()` calls avoided when unnecessary
+This prevents role explosion and allows flexible future policy extensions.
 
 ---
 
 ## Soft Delete Strategy
 
-Projects are soft-deleted using `deletedAt`.
+Projects are soft‑deleted via `deletedAt`:
 
-Benefits:
-- Recoverable data
-- Audit safety
-- Safer than cascading deletes
-
----
-
-## Error Handling & Validation
-
-- Centralized `@RestControllerAdvice`
-- Domain-specific exceptions
-- Consistent API error responses
-- DTO-level validation
-- Fail-fast behavior
+* Preserves auditability
+* Prevents irreversible destructive loss
+* Filtering enforced at service/query layer
 
 ---
 
-## Tech Stack
+#  Subscription & Billing (Stripe Integration)
 
-- Java 21
-- Spring Boot
-- Spring Data JPA (Hibernate)
-- Spring AI
-- PostgreSQL
-- MinIO (S3-compatible)
-- Lombok
-- MapStruct
+A production‑grade subscription engine designed with:
 
----
+* Webhook‑driven lifecycle management
+* Stripe‑side validation before checkout
+* Idempotent activation semantics
+* Plan‑based feature gating
+* Early trial conversion support
 
-## Future Architecture Evolution (Planned)
-
-This backend is currently implemented as a **modular monolith** by design.
-
-The domain boundaries (Projects, Members, AI, Files, Billing) are intentionally isolated
-to allow a smooth transition to a distributed architecture when scale demands it.
-
-Planned evolution includes:
-
-### Monolith → Microservices
-- Project Service
-- Membership / Authorization Service
-- AI Generation Service
-- File Service
-- Billing & Usage Service
-
-Each service boundary already exists conceptually at the service layer.
-
-### Event-Driven Architecture (Kafka)
-- ProjectCreated / ProjectDeleted
-- MemberInvited / MemberAccepted
-- AIGenerationRequested / Completed
-- TokenUsageRecorded
-
-Kafka will be used for:
-- async processing
-- billing
-- notifications
-- AI background jobs
-
-### Kubernetes & Cloud-Native
-- Containerized deployment (Docker)
-- Horizontal scaling via Kubernetes
-- Config & secrets via Spring Cloud Config / Vault
-- Observability via metrics & tracing
-
-This staged approach avoids premature complexity while keeping the system
-**migration-ready**.
-
+Stripe acts strictly as infrastructure and lifecycle authority.
 
 ---
 
-## Author
+## Billing Architecture
 
-**Vikash Kumar Kharwar**  
-B.Tech (CSE)  
-Backend & Full-Stack Developer
+```
+Webhook Layer
+    ↓
+StripePaymentProcessor (Integration)
+    ↓
+SubscriptionService (Domain)
+    ↓
+JPA / PostgreSQL
+```
+
+This architecture isolates external provider logic from core domain services.
 
 ---
+
+## Checkout Validation Strategy
+
+Before creating checkout:
+
+* Validate no ACTIVE / TRIALING / PAST_DUE Stripe subscription exists
+* Query Stripe directly (not the database)
+* Prevent duplicate active subscriptions
+
+Stripe remains the authoritative subscription state machine.
+
+---
+
+## Trial Management
+
+Supports:
+
+* Automatic 7‑day trials
+* Manual early trial termination via API
+* Immediate billing conversion
+
+Endpoint:
+
+```
+POST /api/subscription/end-trial
+```
+
+Flow:
+
+* Stripe `trial_end = NOW`
+* Invoice generated immediately
+* Payment attempted
+* Webhook updates DB → ACTIVE
+
+Ensures billing correctness without direct database mutation.
+
+---
+
+## Subscription Lifecycle Coverage
+
+Handled via Stripe webhooks:
+
+* checkout.session.completed
+* customer.subscription.updated
+* customer.subscription.deleted
+* invoice.paid
+* invoice.payment_failed
+
+Supported transitions:
+
+* Trial → Active
+* Early Trial Conversion
+* Plan Upgrade / Downgrade
+* Scheduled Cancellation
+* Immediate Cancellation
+* Payment Failure → PAST_DUE
+
+---
+
+## Idempotent Webhook Handling
+
+Stripe may retry or reorder events.
+
+Duplicate activation is prevented using:
+
+```
+existsByStripeSubscriptionId()
+```
+
+Ensures exactly‑once semantics under retry and concurrency conditions.
+
+---
+
+## Feature Gating Logic
+
+Project creation limits enforced via subscription state:
+
+* FREE → 1 project
+* TRIAL → configurable limit
+* ACTIVE → governed by `plan.maxProjects`
+* Unlimited plans supported
+
+Billing state remains cleanly separated from domain logic.
+
+---
+
+#  Security
+
+* Webhook signature verification
+* JWT‑based stateless authentication
+* Explicit authorization checks
+* No implicit data exposure
+
+---
+
+#  Concurrency & Consistency Guarantees
+
+* All write operations transactional
+* Unique constraint on `stripeSubscriptionId`
+* Idempotent guards for webhook retries
+* No partial state transitions
+
+Designed to safely handle concurrent webhook deliveries and retry scenarios.
+
+
+---
+#  Tech Stack
+
+* Java 21
+* Spring Boot
+* Spring Data JPA (Hibernate)
+* PostgreSQL (Neon)
+* Stripe API (v31)
+* JWT Authentication
+* MapStruct
+* Lombok
+
+---
+
+#  Author
+
+**Vikash Kumar Kharwar**
+B.Tech CSE
+Backend & Systems‑Focused Developer
+
+---
+
+## Detailed Documentation
+
+- Backend Architecture → docs/CORE_BACKEND_ARCHITECTURE.md
+- API Reference → docs/api-reference.pdf
+- System Architecture → docs/system-architecture.png
+- AI Code Generation Engine → docs/AI_CODE_GENERATION_ENGINE.md
+---
+
 
 ## Note
 
-This project is under active development.  
-The README deliberately documents architecture, intent, and trade-offs to give external reviewers a **clear, honest, and professional understanding** of the system.
+This project is under active development and continues to evolve.
+
+The current implementation focuses on production-oriented architectural principles, including strict authorization modeling, subscription lifecycle correctness, multi-tenant isolation, and AI orchestration safety in a SaaS-style backend system.
